@@ -18,7 +18,7 @@ class DatabaseConfig:
         self.client: Optional[MongoClient] = None
         self.database: Optional[Database] = None
         
-    def connect(self, database_name: str = 'tutoring_platform') -> Database:
+    def connect(self, database_name: str = 'test') -> Database:
         """Establece conexión a MongoDB"""
         try:
             self.client = MongoClient(self.connection_string)

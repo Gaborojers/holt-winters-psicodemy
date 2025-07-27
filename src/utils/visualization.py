@@ -2,15 +2,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 from typing import List, Dict, Any, Optional, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
 # Configurar estilo de matplotlib
-plt.style.use('seaborn-v0_8')
+plt.style.use('default')
 sns.set_palette("husl")
 
 class TimeSeriesVisualizer:
@@ -27,7 +24,7 @@ class TimeSeriesVisualizer:
         show_seasonal: bool = True
     ) -> None:
         """Grafica una serie temporal con componentes"""
-        fig, axes = plt.subplots(2, 1, figsize=self.figsize)
+        _, axes = plt.subplots(2, 1, figsize=self.figsize)
         
         # Serie original
         axes[0].plot(data.index, data.values, linewidth=2, alpha=0.8)
@@ -66,7 +63,7 @@ class TimeSeriesVisualizer:
         title: str = "Comparación de Pronósticos"
     ) -> None:
         """Compara valores actuales vs predichos"""
-        fig, axes = plt.subplots(2, 1, figsize=self.figsize)
+        _, axes = plt.subplots(2, 1, figsize=self.figsize)
         
         # Serie temporal
         axes[0].plot(actual.index, actual.values, 'b-', linewidth=2, label='Actual', alpha=0.8)
@@ -111,7 +108,7 @@ class TimeSeriesVisualizer:
     
     def plot_autocorrelation(self, data: pd.Series, lags: int = 40) -> None:
         """Grafica autocorrelación y autocorrelación parcial"""
-        fig, axes = plt.subplots(2, 1, figsize=self.figsize)
+        _, axes = plt.subplots(2, 1, figsize=self.figsize)
         
         from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
         
@@ -128,7 +125,7 @@ class TimeSeriesVisualizer:
     
     def plot_rolling_statistics(self, data: pd.Series, window: int = 30) -> None:
         """Grafica estadísticas móviles"""
-        fig, axes = plt.subplots(3, 1, figsize=self.figsize)
+        _, axes = plt.subplots(3, 1, figsize=self.figsize)
         
         # Media móvil
         rolling_mean = data.rolling(window=window).mean()
@@ -174,7 +171,7 @@ class EducationalVisualizer:
             'message_length': 'mean'
         }).fillna(0)
         
-        fig, axes = plt.subplots(2, 2, figsize=self.figsize)
+        _, axes = plt.subplots(2, 2, figsize=self.figsize)
         
         # Preocupaciones
         axes[0, 0].plot(daily_data.index, daily_data['concern'] * 100, 'r-', linewidth=2)
@@ -231,11 +228,11 @@ class EducationalVisualizer:
             print("No hay datos de citas para visualizar")
             return
         
-        fig, axes = plt.subplots(2, 2, figsize=self.figsize)
+        _, axes = plt.subplots(2, 2, figsize=self.figsize)
         
         # Distribución de estados
-        if 'status' in data.columns:
-            status_counts = data['status'].value_counts()
+        if 'estado_cita' in data.columns:
+            status_counts = data['estado_cita'].value_counts()
             axes[0, 0].pie(status_counts.values, labels=status_counts.index, autopct='%1.1f%%')
             axes[0, 0].set_title("Distribución de Estados de Citas")
         
@@ -247,11 +244,11 @@ class EducationalVisualizer:
             axes[0, 1].set_ylabel("Frecuencia")
         
         # Tasa de asistencia por día de la semana
-        if 'appointment_date' in data.columns:
+        if 'fecha_cita' in data.columns:
             data_copy = data.copy()
-            data_copy['day_of_week'] = data_copy['appointment_date'].dt.dayofweek
-            attendance_by_day = data_copy.groupby('day_of_week')['status'].apply(
-                lambda x: (x == 'completed').mean() * 100
+            data_copy['day_of_week'] = data_copy['fecha_cita'].dt.dayofweek
+            attendance_by_day = data_copy.groupby('day_of_week')['estado_cita'].apply(
+                lambda x: (x == 'completada').mean() * 100
             )
             day_names = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
             axes[1, 0].bar(range(len(attendance_by_day)), attendance_by_day.values, color='lightgreen')
@@ -261,10 +258,10 @@ class EducationalVisualizer:
             axes[1, 0].set_ylabel("Tasa de Asistencia (%)")
         
         # Tasa de asistencia por hora
-        if 'appointment_date' in data.columns:
-            data_copy['hour'] = data_copy['appointment_date'].dt.hour
-            attendance_by_hour = data_copy.groupby('hour')['status'].apply(
-                lambda x: (x == 'completed').mean() * 100
+        if 'fecha_cita' in data.columns:
+            data_copy['hour'] = data_copy['fecha_cita'].dt.hour
+            attendance_by_hour = data_copy.groupby('hour')['estado_cita'].apply(
+                lambda x: (x == 'completada').mean() * 100
             )
             axes[1, 1].bar(attendance_by_hour.index, attendance_by_hour.values, color='lightcoral')
             axes[1, 1].set_title("Tasa de Asistencia por Hora")
@@ -280,11 +277,11 @@ class EducationalVisualizer:
             print("No hay datos de tareas para visualizar")
             return
         
-        fig, axes = plt.subplots(2, 2, figsize=self.figsize)
+        _, axes = plt.subplots(2, 2, figsize=self.figsize)
         
         # Tasa de completado
-        if 'completed' in data.columns:
-            completion_rate = data['completed'].mean() * 100
+        if 'task_completed' in data.columns:
+            completion_rate = data['task_completed'].mean() * 100
             axes[0, 0].pie([completion_rate, 100-completion_rate], 
                           labels=['Completadas', 'Pendientes'], 
                           autopct='%1.1f%%', colors=['lightgreen', 'lightcoral'])
@@ -292,7 +289,7 @@ class EducationalVisualizer:
         
         # Tiempo de completado
         if 'time_to_complete_hours' in data.columns:
-            completed_tasks = data[data['completed'] == 1]
+            completed_tasks = data[data['task_completed'] == True]
             if not completed_tasks.empty:
                 axes[0, 1].hist(completed_tasks['time_to_complete_hours'], bins=20, alpha=0.7, color='skyblue')
                 axes[0, 1].set_title("Distribución de Tiempo de Completado")
@@ -300,10 +297,10 @@ class EducationalVisualizer:
                 axes[0, 1].set_ylabel("Frecuencia")
         
         # Completado por día de la semana
-        if 'created_at' in data.columns:
+        if 'fecha_cita' in data.columns:
             data_copy = data.copy()
-            data_copy['day_of_week'] = data_copy['created_at'].dt.dayofweek
-            completion_by_day = data_copy.groupby('day_of_week')['completed'].mean() * 100
+            data_copy['day_of_week'] = data_copy['fecha_cita'].dt.dayofweek
+            completion_by_day = data_copy.groupby('day_of_week')['task_completed'].mean() * 100
             day_names = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
             axes[1, 0].bar(range(len(completion_by_day)), completion_by_day.values, color='lightblue')
             axes[1, 0].set_title("Tasa de Completado por Día")
@@ -312,27 +309,29 @@ class EducationalVisualizer:
             axes[1, 0].set_ylabel("Tasa de Completado (%)")
         
         # Longitud de tareas vs completado
-        if 'task_length' in data.columns and 'completed' in data.columns:
-            axes[1, 1].scatter(data['task_length'], data['completed'], alpha=0.6, color='purple')
+        if 'task_description' in data.columns and 'task_completed' in data.columns:
+            task_lengths = data['task_description'].str.len()
+            axes[1, 1].scatter(task_lengths, data['task_completed'], alpha=0.6, color='purple')
             axes[1, 1].set_title("Longitud de Tarea vs Completado")
             axes[1, 1].set_xlabel("Longitud de Tarea")
-            axes[1, 1].set_ylabel("Completado (0/1)")
+            axes[1, 1].set_ylabel("Completado (True/False)")
         
         plt.tight_layout()
         plt.show()
     
     def plot_student_risk_dashboard(self, risk_scores: pd.Series) -> None:
         """Grafica dashboard de riesgo estudiantil"""
+        score_riesgo = "Score de Riesgo"
         if risk_scores.empty:
             print("No hay scores de riesgo para visualizar")
             return
         
-        fig, axes = plt.subplots(2, 2, figsize=self.figsize)
+        _, axes = plt.subplots(2, 2, figsize=self.figsize)
         
         # Distribución de scores de riesgo
         axes[0, 0].hist(risk_scores.values, bins=20, alpha=0.7, color='red', edgecolor='black')
         axes[0, 0].set_title("Distribución de Scores de Riesgo")
-        axes[0, 0].set_xlabel("Score de Riesgo")
+        axes[0, 0].set_xlabel(score_riesgo)
         axes[0, 0].set_ylabel("Frecuencia")
         
         # Top 10 estudiantes en riesgo
@@ -341,12 +340,12 @@ class EducationalVisualizer:
         axes[0, 1].set_yticks(range(len(top_risk)))
         axes[0, 1].set_yticklabels([f"Estudiante {i}" for i in top_risk.index])
         axes[0, 1].set_title("Top 10 Estudiantes en Riesgo")
-        axes[0, 1].set_xlabel("Score de Riesgo")
+        axes[0, 1].set_xlabel(score_riesgo)
         
         # Box plot de scores
         axes[1, 0].boxplot(risk_scores.values, patch_artist=True, boxprops=dict(facecolor='lightcoral'))
         axes[1, 0].set_title("Box Plot de Scores de Riesgo")
-        axes[1, 0].set_ylabel("Score de Riesgo")
+        axes[1, 0].set_ylabel(score_riesgo)
         
         # Categorización de riesgo
         risk_categories = pd.cut(risk_scores, bins=3, labels=['Bajo', 'Medio', 'Alto'])
@@ -358,65 +357,4 @@ class EducationalVisualizer:
         plt.tight_layout()
         plt.show()
 
-class InteractiveVisualizer:
-    """Visualizaciones interactivas con Plotly"""
-    
-    @staticmethod
-    def create_interactive_time_series(data: pd.Series, title: str = "Serie Temporal") -> go.Figure:
-        """Crea gráfico interactivo de serie temporal"""
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data.values,
-            mode='lines',
-            name='Serie Original',
-            line=dict(color='blue', width=2)
-        ))
-        
-        fig.update_layout(
-            title=title,
-            xaxis_title="Fecha",
-            yaxis_title="Valor",
-            hovermode='x unified'
-        )
-        
-        return fig
-    
-    @staticmethod
-    def create_interactive_forecast_comparison(
-        actual: pd.Series, 
-        forecasts: Dict[str, pd.Series],
-        title: str = "Comparación de Pronósticos"
-    ) -> go.Figure:
-        """Crea comparación interactiva de pronósticos"""
-        fig = go.Figure()
-        
-        # Serie actual
-        fig.add_trace(go.Scatter(
-            x=actual.index,
-            y=actual.values,
-            mode='lines',
-            name='Actual',
-            line=dict(color='black', width=3)
-        ))
-        
-        # Pronósticos
-        colors = ['red', 'green', 'blue', 'orange', 'purple']
-        for i, (name, forecast) in enumerate(forecasts.items()):
-            fig.add_trace(go.Scatter(
-                x=forecast.index,
-                y=forecast.values,
-                mode='lines',
-                name=name,
-                line=dict(color=colors[i % len(colors)], width=2, dash='dash')
-            ))
-        
-        fig.update_layout(
-            title=title,
-            xaxis_title="Fecha",
-            yaxis_title="Valor",
-            hovermode='x unified'
-        )
-        
-        return fig
+

@@ -1,8 +1,7 @@
 import pandas as pd
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
+from datetime import datetime
 from pymongo.collection import Collection
-from pymongo.cursor import Cursor
 
 class DataLoader:
     """Cargador de datos desde MongoDB"""
@@ -59,11 +58,10 @@ class DataLoader:
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        student_id: Optional[str] = None,
-        tutor_id: Optional[str] = None,
-        status: Optional[str] = None
+        id_alumno: Optional[str] = None,
+        id_tutor: Optional[str] = None,
+        estado_cita: Optional[str] = None
     ) -> pd.DataFrame:
-        """Carga datos de citas"""
         query = {}
         
         # Filtros de fecha
@@ -73,15 +71,15 @@ class DataLoader:
                 date_filter['$gte'] = start_date
             if end_date:
                 date_filter['$lte'] = end_date
-            query['created_at'] = date_filter
+            query['fecha_cita'] = date_filter
         
-        # Filtros específicos
-        if student_id:
-            query['student_id'] = student_id
-        if tutor_id:
-            query['tutor_id'] = tutor_id
-        if status:
-            query['status'] = status
+        # Filtros específicos según el modelo de API
+        if id_alumno:
+            query['id_alumno'] = id_alumno
+        if id_tutor:
+            query['id_tutor'] = id_tutor
+        if estado_cita:
+            query['estado_cita'] = estado_cita
         
         cursor = self.collection.find(query)
         data = list(cursor)
@@ -95,8 +93,8 @@ class DataLoader:
         if '_id' in df.columns:
             df['_id'] = df['_id'].astype(str)
         
-        # Convertir fechas
-        date_columns = ['created_at', 'updated_at', 'appointment_date', 'confirmed_at']
+        # Convertir fechas según el modelo de API
+        date_columns = ['created_at', 'updated_at', 'fecha_cita', 'deleted_at']
         for col in date_columns:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col])
@@ -107,11 +105,10 @@ class DataLoader:
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-        student_id: Optional[str] = None,
-        tutor_id: Optional[str] = None,
+        id_alumno: Optional[str] = None,
+        id_tutor: Optional[str] = None,
         completed: Optional[bool] = None
     ) -> pd.DataFrame:
-        """Carga datos de tareas"""
         query = {}
         
         # Filtros de fecha
@@ -121,30 +118,63 @@ class DataLoader:
                 date_filter['$gte'] = start_date
             if end_date:
                 date_filter['$lte'] = end_date
-            query['created_at'] = date_filter
+            query['fecha_cita'] = date_filter
         
-        # Filtros específicos
-        if student_id:
-            query['student_id'] = student_id
-        if tutor_id:
-            query['tutor_id'] = tutor_id
-        if completed is not None:
-            query['completed'] = completed
+        # Filtros específicos según el modelo de API
+        if id_alumno:
+            query['id_alumno'] = id_alumno
+        if id_tutor:
+            query['id_tutor'] = id_tutor
+        
+        # Solo citas que tengan checklist
+        query['checklist'] = {'$exists': True, '$ne': []}
         
         cursor = self.collection.find(query)
-        data = list(cursor)
+        appointments_data = list(cursor)
         
-        if not data:
+        if not appointments_data:
             return pd.DataFrame()
         
-        df = pd.DataFrame(data)
+        # Extraer tareas del checklist de cada cita
+        tasks_data = []
+        for appointment in appointments_data:
+            appointment_id = str(appointment.get('_id', ''))
+            id_tutor = appointment.get('id_tutor', '')
+            id_alumno = appointment.get('id_alumno', '')
+            fecha_cita = appointment.get('fecha_cita')
+            estado_cita = appointment.get('estado_cita', '')
+            created_at = appointment.get('created_at')
+            updated_at = appointment.get('updated_at')
+            reason = appointment.get('reason', '')
+            
+            checklist = appointment.get('checklist', [])
+            
+            for task in checklist:
+                task_data = {
+                    'appointment_id': appointment_id,
+                    'id_tutor': id_tutor,
+                    'id_alumno': id_alumno,
+                    'fecha_cita': fecha_cita,
+                    'estado_cita': estado_cita,
+                    'appointment_created_at': created_at,
+                    'appointment_updated_at': updated_at,
+                    'reason': reason,
+                    'task_description': task.get('description', ''),
+                    'task_completed': task.get('completed', False)
+                }
+                tasks_data.append(task_data)
         
-        # Convertir ObjectId a string
-        if '_id' in df.columns:
-            df['_id'] = df['_id'].astype(str)
+        if not tasks_data:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(tasks_data)
+        
+        # Aplicar filtro de completado si se especifica
+        if completed is not None:
+            df = df[df['task_completed'] == completed]
         
         # Convertir fechas
-        date_columns = ['created_at', 'updated_at', 'due_date', 'completed_at']
+        date_columns = ['fecha_cita', 'appointment_created_at', 'appointment_updated_at']
         for col in date_columns:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col])
@@ -154,10 +184,8 @@ class DataLoader:
     def get_time_series_data(
         self,
         group_by: str = 'date',
-        metric: str = 'count',
         filters: Optional[Dict[str, Any]] = None
     ) -> pd.DataFrame:
-        """Genera series temporales de los datos"""
         pipeline = []
         
         # Aplicar filtros

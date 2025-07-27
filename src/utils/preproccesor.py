@@ -6,7 +6,6 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
 
 class DataPreprocessor:
-    """Preprocesador de datos para análisis de series temporales"""
     
     def __init__(self):
         self.scaler = StandardScaler()
@@ -14,7 +13,6 @@ class DataPreprocessor:
         self.imputer = SimpleImputer(strategy='mean')
     
     def clean_ai_analysis_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Limpia y prepara datos de análisis de IA"""
         if df.empty:
             return df
         
@@ -54,11 +52,11 @@ class DataPreprocessor:
         
         # Codificar estados de citas
         status_mapping = {
-            'pending': 0,
-            'confirmed': 1,
-            'completed': 2,
-            'cancelled': 3,
-            'no_show': 4
+            'pendiente': 0,
+            'confirmada': 1,
+            'completada': 2,
+            'cancelada': 3,
+            'no_asistio': 4
         }
         
         if 'status' in df_clean.columns:
@@ -94,13 +92,13 @@ class DataPreprocessor:
         df_clean = df.copy()
         
         # Convertir booleanos
-        if 'completed' in df_clean.columns:
-            df_clean['completed'] = df_clean['completed'].astype(int)
+        if 'task_completed' in df_clean.columns:
+            df_clean['task_completed'] = df_clean['task_completed'].astype(int)
         
         # Calcular tiempo de completado
-        if 'created_at' in df_clean.columns and 'completed_at' in df_clean.columns:
+        if 'appointment_created_at' in df_clean.columns and 'appointment_updated_at' in df_clean.columns:
             df_clean['time_to_complete_hours'] = (
-                df_clean['completed_at'] - df_clean['created_at']
+                df_clean['appointment_updated_at'] - df_clean['appointment_created_at']
             ).dt.total_seconds() / 3600
         
         # Features de tareas
@@ -108,7 +106,7 @@ class DataPreprocessor:
             df_clean['task_length'] = df_clean['description'].str.len()
         
         # Codificar variables categóricas
-        categorical_columns = ['student_id', 'tutor_id', 'task_type']
+        categorical_columns = ['id_alumno', 'id_tutor', 'task_description']
         for col in categorical_columns:
             if col in df_clean.columns:
                 if col not in self.label_encoders:
@@ -119,8 +117,7 @@ class DataPreprocessor:
         
         return df_clean
     
-    def create_time_series_features(self, df: pd.DataFrame, date_column: str = 'created_at') -> pd.DataFrame:
-        """Crea features para series temporales"""
+    def create_time_series_features(self, df: pd.DataFrame, date_column: str = 'fecha_cita') -> pd.DataFrame:
         if df.empty or date_column not in df.columns:
             return df
         
@@ -159,11 +156,10 @@ class DataPreprocessor:
     def aggregate_by_time_period(
         self, 
         df: pd.DataFrame, 
-        date_column: str = 'created_at',
+        date_column: str = 'fecha_cita',
         period: str = 'D',
         agg_functions: Dict[str, List[str]] = None
     ) -> pd.DataFrame:
-        """Agrega datos por período de tiempo"""
         if df.empty or date_column not in df.columns:
             return df
         
@@ -175,7 +171,7 @@ class DataPreprocessor:
                 'concern': ['sum', 'mean'],
                 'academic_constructive': ['sum', 'mean'],
                 'message_length': ['mean', 'std'],
-                'completed': ['sum', 'mean'],
+                'task_completed': ['sum', 'mean'],
                 'status_code': ['mean']
             }
         
@@ -196,7 +192,6 @@ class DataPreprocessor:
         return df_agg
     
     def handle_missing_values(self, df: pd.DataFrame, strategy: str = 'forward') -> pd.DataFrame:
-        """Maneja valores faltantes en series temporales"""
         if df.empty:
             return df
         
@@ -216,7 +211,6 @@ class DataPreprocessor:
         return df_clean
     
     def normalize_features(self, df: pd.DataFrame, columns: List[str] = None) -> pd.DataFrame:
-        """Normaliza features numéricas"""
         if df.empty:
             return df
         

@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any, Optional, Tuple
-from sklearn.metrics import confusion_matrix, classification_report
+from typing import Dict, List, Optional
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -115,11 +114,11 @@ class EducationalMetrics:
             return metrics
         
         # Tasa de asistencia
-        if 'status' in data.columns:
+        if 'estado_cita' in data.columns:
             total_appointments = len(data)
-            completed = len(data[data['status'] == 'completed'])
-            cancelled = len(data[data['status'] == 'cancelled'])
-            no_show = len(data[data['status'] == 'no_show'])
+            completed = len(data[data['estado_cita'] == 'completado'])
+            cancelled = len(data[data['estado_cita'] == 'cancelado'])
+            no_show = len(data[data['estado_cita'] == 'no_asistio'])
             
             metrics['attendance_rate'] = (completed / total_appointments) * 100 if total_appointments > 0 else 0
             metrics['cancellation_rate'] = (cancelled / total_appointments) * 100 if total_appointments > 0 else 0
@@ -140,14 +139,14 @@ class EducationalMetrics:
             return metrics
         
         # Tasa de completado
-        if 'completed' in data.columns:
+        if 'task_completed' in data.columns:
             total_tasks = len(data)
-            completed_tasks = data['completed'].sum()
+            completed_tasks = data['task_completed'].sum()
             metrics['completion_rate'] = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
         
         # Tiempo promedio de completado
         if 'time_to_complete_hours' in data.columns:
-            completed_data = data[data['completed'] == 1]
+            completed_data = data[data['task_completed'] == 1]
             if not completed_data.empty:
                 metrics['avg_completion_time_hours'] = completed_data['time_to_complete_hours'].mean()
         
@@ -175,12 +174,12 @@ class EducationalMetrics:
             'concern': 'mean',
             'bullying': 'mean',
             'message_length': 'mean',
-            'completed': 'mean' if 'completed' in data.columns else lambda x: 1.0
+            'task_completed': 'mean' if 'task_completed' in data.columns else lambda x: 1.0
         }).reset_index()
         
         # Normalizar métricas
         scaler = StandardScaler()
-        normalized_metrics = scaler.fit_transform(student_metrics[['concern', 'bullying', 'message_length', 'completed']])
+        normalized_metrics = scaler.fit_transform(student_metrics[['concern', 'bullying', 'message_length', 'task_completed']])
         
         # Calcular score de riesgo
         risk_score = (
@@ -210,7 +209,7 @@ class ModelComparison:
     @staticmethod
     def plot_model_comparison(comparison_df: pd.DataFrame, metrics: List[str]) -> None:
         """Grafica comparación de modelos"""
-        fig, axes = plt.subplots(1, len(metrics), figsize=(5*len(metrics), 5))
+        _, axes = plt.subplots(1, len(metrics), figsize=(5*len(metrics), 5))
         
         if len(metrics) == 1:
             axes = [axes]

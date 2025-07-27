@@ -13,7 +13,6 @@ from src.core.base_model import HoltWintersModel, ARIMAModel, EnsembleModel
 from src.core.metrics import TimeSeriesMetrics, EducationalMetrics, ModelComparison
 from src.utils.visualization import TimeSeriesVisualizer, EducationalVisualizer
 from datetime import datetime, timedelta
-import pandas as pd
 
 def main():
     """Ejemplo principal de uso"""
@@ -21,7 +20,7 @@ def main():
     
     # 1. Conectar a la base de datos
     try:
-        database = db_config.connect()
+        db_config.connect()
         print("✅ Conexión a MongoDB establecida")
     except Exception as e:
         print(f"❌ Error conectando a MongoDB: {e}")
