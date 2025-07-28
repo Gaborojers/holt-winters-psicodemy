@@ -156,13 +156,13 @@ class EducationalVisualizer:
     
     def __init__(self, figsize: Tuple[int, int] = (12, 8)):
         self.figsize = figsize
-    
+
     def plot_engagement_trends(self, data: pd.DataFrame, date_column: str = 'created_at') -> None:
         """Grafica tendencias de engagement"""
         if data.empty:
             print("No hay datos para visualizar")
             return
-        
+
         # Agregar por fecha
         daily_data = data.groupby(pd.Grouper(key=date_column, freq='D')).agg({
             'concern': 'mean',
@@ -170,29 +170,37 @@ class EducationalVisualizer:
             'academic_constructive': 'mean',
             'message_length': 'mean'
         }).fillna(0)
-        
-        _, axes = plt.subplots(2, 2, figsize=self.figsize)
-        
+
+        fig, axes = plt.subplots(2, 2, figsize=self.figsize)
+
+        def plot_if_varies(ax, y, color, title, ylabel):
+            if np.allclose(y, 0) or np.all(y == y[0]):
+                ax.text(0.5, 0.5, 'Sin variación', ha='center', va='center', fontsize=12, color='gray', transform=ax.transAxes)
+                ax.set_title(title)
+                ax.set_ylabel(ylabel)
+                ax.grid(True, alpha=0.3)
+            else:
+                ax.plot(daily_data.index, y, color, linewidth=2)
+                ax.set_title(title)
+                ax.set_ylabel(ylabel)
+                ax.grid(True, alpha=0.3)
+
         # Preocupaciones
-        axes[0, 0].plot(daily_data.index, daily_data['concern'] * 100, 'r-', linewidth=2)
-        axes[0, 0].set_title("Tasa de Preocupaciones (%)")
-        axes[0, 0].grid(True, alpha=0.3)
-        
+        plot_if_varies(axes[0, 0], daily_data['concern'] * 100, 'r-', "Tasa de Preocupaciones (%)", "% Preocupación")
         # Bullying
-        axes[0, 1].plot(daily_data.index, daily_data['bullying'] * 100, 'orange', linewidth=2)
-        axes[0, 1].set_title("Tasa de Bullying (%)")
-        axes[0, 1].grid(True, alpha=0.3)
-        
+        plot_if_varies(axes[0, 1], daily_data['bullying'] * 100, 'orange', "Tasa de Bullying (%)", "% Bullying")
         # Comportamiento constructivo
-        axes[1, 0].plot(daily_data.index, daily_data['academic_constructive'] * 100, 'g-', linewidth=2)
-        axes[1, 0].set_title("Tasa de Comportamiento Constructivo (%)")
-        axes[1, 0].grid(True, alpha=0.3)
-        
+        plot_if_varies(axes[1, 0], daily_data['academic_constructive'] * 100, 'g-', "Tasa de Comportamiento Constructivo (%)", "% Constructivo")
         # Longitud de mensajes
         axes[1, 1].plot(daily_data.index, daily_data['message_length'], 'b-', linewidth=2)
         axes[1, 1].set_title("Longitud Promedio de Mensajes")
         axes[1, 1].grid(True, alpha=0.3)
-        
+        axes[1, 1].set_ylabel("Longitud")
+
+        # Rotar fechas en todos los subplots
+        for ax in axes.flat:
+            plt.setp(ax.get_xticklabels(), rotation=45)
+
         plt.tight_layout()
         plt.show()
     

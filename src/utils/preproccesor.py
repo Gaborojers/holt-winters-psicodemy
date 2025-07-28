@@ -13,34 +13,18 @@ class DataPreprocessor:
         self.imputer = SimpleImputer(strategy='mean')
     
     def clean_ai_analysis_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            return df
-        
-        # Crear copia para no modificar el original
         df_clean = df.copy()
-        
-        # Extraer valores del análisis anidado
+        # Extraer métricas del campo 'analysis' si existe
         if 'analysis' in df_clean.columns:
-            analysis_df = pd.json_normalize(df_clean['analysis'])
-            df_clean = pd.concat([df_clean.drop('analysis', axis=1), analysis_df], axis=1)
-        
-        # Convertir booleanos a enteros para análisis
-        boolean_columns = ['bullying', 'concern', 'academic_constructive', 'is_to_ai']
-        for col in boolean_columns:
-            if col in df_clean.columns:
-                df_clean[col] = df_clean[col].astype(int)
-        
-        # Crear features adicionales
-        df_clean['message_length'] = df_clean['message_content'].str.len()
-        df_clean['has_analysis'] = 1
-        
+            df_clean['bullying'] = df_clean['analysis'].apply(lambda x: x.get('bullying') if isinstance(x, dict) else np.nan)
+            df_clean['concern'] = df_clean['analysis'].apply(lambda x: x.get('concern') if isinstance(x, dict) else np.nan)
+            df_clean['academic_constructive'] = df_clean['analysis'].apply(lambda x: x.get('academic_constructive') if isinstance(x, dict) else np.nan)
         # Agregar features temporales
         if 'created_at' in df_clean.columns:
             df_clean['hour'] = df_clean['created_at'].dt.hour
             df_clean['day_of_week'] = df_clean['created_at'].dt.dayofweek
             df_clean['month'] = df_clean['created_at'].dt.month
-            df_clean['is_weekend'] = df_clean['day_of_week'].isin([5, 6]).astype(int)
-        
+            df_clean['is_weekend'] = df_clean['day_of_week'] >= 5
         return df_clean
     
     def clean_appointments_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -60,16 +44,12 @@ class DataPreprocessor:
         }
         
         if 'status' in df_clean.columns:
-            df_clean['status_code'] = df_clean['status'].map(status_mapping)
-        
-        # Calcular duración de citas
-        if 'appointment_date' in df_clean.columns and 'duration' in df_clean.columns:
-            df_clean['duration_minutes'] = df_clean['duration'] * 60  # Asumiendo duración en horas
+            df_clean['status_code'] = df_clean['status'].map(status_mapping)        
         
         # Features temporales
         if 'created_at' in df_clean.columns:
             df_clean['days_to_appointment'] = (
-                df_clean['appointment_date'] - df_clean['created_at']
+                df_clean['fecha_cita'] - df_clean['created_at']
             ).dt.days
         
         # Codificar variables categóricas

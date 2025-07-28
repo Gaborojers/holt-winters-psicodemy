@@ -70,51 +70,57 @@ class BaseTimeSeriesModel(ABC):
         }
 
 class HoltWintersModel(BaseTimeSeriesModel):
-    """Modelo Holt-Winters para series temporales"""
-    
-    def __init__(self, seasonal_periods: int = 7, trend: str = 'add', seasonal: str = 'add'):
+    """
+    Modelo Holt-Winters para series temporales usando statsmodels.
+    Permite ajuste aditivo/multiplicativo, tendencia, estacionalidad y argumentos extra.
+    """
+    def __init__(self, seasonal_periods: int = 1, trend: str = 'add', seasonal: str = 'None', damped_trend: bool = False, initialization_method: str = 'estimated', **kwargs):
         super().__init__("Holt-Winters")
         self.seasonal_periods = seasonal_periods
         self.trend = trend
         self.seasonal = seasonal
+        self.damped_trend = damped_trend
+        self.initialization_method = initialization_method
+        self.extra_args = kwargs
         self.alpha = None
         self.beta = None
         self.gamma = None
     
     def fit(self, data: pd.Series) -> 'HoltWintersModel':
-        """Ajusta el modelo Holt-Winters"""
+        """Ajusta el modelo Holt-Winters usando statsmodels"""
         try:
-            from holtwinters import ExponentialSmoothing
-            
+            from statsmodels.tsa.holtwinters import ExponentialSmoothing
+            # Validar parámetros
+            if self.trend not in [None, 'add', 'mul']:
+                raise ValueError("trend debe ser None, 'add' o 'mul'")
+            if self.seasonal not in [None, 'add', 'mul']:
+                raise ValueError("seasonal debe ser None, 'add' o 'mul'")
             # Crear y ajustar el modelo
             self.model = ExponentialSmoothing(
                 data,
                 trend=self.trend,
                 seasonal=self.seasonal,
-                seasonal_periods=self.seasonal_periods
-            ).fit()
-            
+                seasonal_periods=self.seasonal_periods,
+                damped_trend=self.damped_trend,
+                initialization_method=self.initialization_method,
+                **self.extra_args
+            ).fit(optimized=True)
             # Obtener parámetros
-            self.alpha = self.model.params['smoothing_level']
-            self.beta = self.model.params.get('smoothing_slope', None)
-            self.gamma = self.model.params.get('smoothing_seasonal', None)
-            
-            # Obtener valores ajustados
+            self.alpha = getattr(self.model.params, 'smoothing_level', None)
+            self.beta = getattr(self.model.params, 'smoothing_trend', None)
+            self.gamma = getattr(self.model.params, 'smoothing_seasonal', None)
+            # Valores ajustados y residuales
             self.fitted_values = self.model.fittedvalues
             self.residuals = data - self.fitted_values
-            
             self.is_fitted = True
-            
         except ImportError:
-            raise ImportError("La librería holtwinters no está instalada. Instálala con: pip install holtwinters")
-        
+            raise ImportError("statsmodels no está instalado. Instálalo con: pip install statsmodels")
         return self
     
     def predict(self, steps: int) -> pd.Series:
         """Realiza predicciones"""
         if not self.is_fitted:
             raise ValueError("El modelo debe estar ajustado antes de hacer predicciones")
-        
         forecast = self.model.forecast(steps)
         return forecast
     
