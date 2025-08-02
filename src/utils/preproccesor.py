@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from typing import List, Dict
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
 
@@ -14,17 +13,40 @@ class DataPreprocessor:
     
     def clean_ai_analysis_data(self, df: pd.DataFrame) -> pd.DataFrame:
         df_clean = df.copy()
-        # Extraer métricas del campo 'analysis' si existe
+        
+        # Verificar si existe la columna 'analysis'
         if 'analysis' in df_clean.columns:
+            print(f"✅ Columna 'analysis' encontrada. Procesando {len(df_clean)} registros...")
+            
+            # Extraer métricas del campo 'analysis'
             df_clean['bullying'] = df_clean['analysis'].apply(lambda x: x.get('bullying') if isinstance(x, dict) else np.nan)
             df_clean['concern'] = df_clean['analysis'].apply(lambda x: x.get('concern') if isinstance(x, dict) else np.nan)
             df_clean['academic_constructive'] = df_clean['analysis'].apply(lambda x: x.get('academic_constructive') if isinstance(x, dict) else np.nan)
+            
+            # Verificar que las columnas se crearon correctamente
+            print(f"   - Columnas creadas: bullying={df_clean['bullying'].notna().sum()}, concern={df_clean['concern'].notna().sum()}, academic={df_clean['academic_constructive'].notna().sum()}")
+        else:
+            print("⚠️  Columna 'analysis' no encontrada. Verificando estructura de datos...")
+            print(f"   - Columnas disponibles: {list(df_clean.columns)}")
+            
+            # Si no existe 'analysis', verificar si ya existen las columnas individuales
+            if 'bullying' not in df_clean.columns:
+                print("   - Creando columnas con valores por defecto...")
+                df_clean['bullying'] = np.nan
+                df_clean['concern'] = np.nan
+                df_clean['academic_constructive'] = np.nan
+        
         # Agregar features temporales
         if 'created_at' in df_clean.columns:
             df_clean['hour'] = df_clean['created_at'].dt.hour
             df_clean['day_of_week'] = df_clean['created_at'].dt.dayofweek
             df_clean['month'] = df_clean['created_at'].dt.month
             df_clean['is_weekend'] = df_clean['day_of_week'] >= 5
+            print(f"   - Features temporales agregadas")
+        else:
+            print("⚠️  Columna 'created_at' no encontrada")
+        
+        print(f"✅ Preprocesamiento completado. Columnas finales: {list(df_clean.columns)}")
         return df_clean
     
     def clean_appointments_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -140,8 +162,18 @@ class DataPreprocessor:
         period: str = 'D',
         agg_functions: Dict[str, List[str]] = None
     ) -> pd.DataFrame:
-        if df.empty or date_column not in df.columns:
+        if df.empty:
+            print("⚠️  DataFrame vacío")
             return df
+        
+        if date_column not in df.columns:
+            print(f"⚠️  Columna de fecha '{date_column}' no encontrada")
+            print(f"   - Columnas disponibles: {list(df.columns)}")
+            return df
+        
+        print(f"🔄 Agregando datos por período '{period}' usando columna '{date_column}'...")
+        print(f"   - Registros a procesar: {len(df)}")
+        print(f"   - Columnas disponibles: {list(df.columns)}")
         
         # Funciones de agregación por defecto
         if agg_functions is None:
@@ -157,6 +189,17 @@ class DataPreprocessor:
         
         # Filtrar columnas que existen en el DataFrame
         available_columns = [col for col in agg_functions.keys() if col in df.columns]
+        missing_columns = [col for col in agg_functions.keys() if col not in df.columns]
+        
+        if missing_columns:
+            print(f"⚠️  Columnas no encontradas: {missing_columns}")
+        
+        if not available_columns:
+            print("❌ No hay columnas disponibles para agregar")
+            return df
+        
+        print(f"✅ Columnas a agregar: {available_columns}")
+        
         agg_dict = {}
         
         for col in available_columns:
@@ -166,10 +209,16 @@ class DataPreprocessor:
                 else:
                     agg_dict[f'{col}_{func}'] = func
         
-        # Agregar por período
-        df_agg = df.set_index(date_column).resample(period).agg(agg_dict)
+        print(f"   - Funciones de agregación: {list(agg_dict.keys())}")
         
-        return df_agg
+        try:
+            # Agregar por período
+            df_agg = df.set_index(date_column).resample(period).agg(agg_dict)
+            print(f"✅ Agregación completada: {len(df_agg)} períodos")
+            return df_agg
+        except Exception as e:
+            print(f"❌ Error en agregación: {str(e)}")
+            return df
     
     def handle_missing_values(self, df: pd.DataFrame, strategy: str = 'forward') -> pd.DataFrame:
         if df.empty:

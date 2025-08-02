@@ -229,103 +229,325 @@ class EducationalVisualizer:
         plt.ylabel("Día de la Semana")
         plt.tight_layout()
         plt.show()
-    
+
     def plot_appointment_analysis(self, data: pd.DataFrame) -> None:
-        """Grafica análisis de citas"""
+        """Grafica análisis de citas con visualizaciones individuales"""
         if data.empty:
             print("No hay datos de citas para visualizar")
             return
-        
-        _, axes = plt.subplots(2, 2, figsize=self.figsize)
-        
-        # Distribución de estados
+
+        # Configurar estilo
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # Variables para el resumen estadístico
+        valid_days = pd.Series(dtype=float)
+        unique_values = 0
+
+        # 1. DISTRIBUCIÓN DE ESTADOS DE CITAS
         if 'estado_cita' in data.columns:
+            print("📊 Generando distribución de estados de citas...")
             status_counts = data['estado_cita'].value_counts()
-            axes[0, 0].pie(status_counts.values, labels=status_counts.index, autopct='%1.1f%%')
-            axes[0, 0].set_title("Distribución de Estados de Citas")
-        
-        # Tiempo hasta la cita
-        if 'days_to_appointment' in data.columns:
-            axes[0, 1].hist(data['days_to_appointment'], bins=20, alpha=0.7, color='skyblue')
-            axes[0, 1].set_title("Distribución de Días hasta la Cita")
-            axes[0, 1].set_xlabel("Días")
-            axes[0, 1].set_ylabel("Frecuencia")
-        
-        # Tasa de asistencia por día de la semana
+
+            plt.figure(figsize=(10, 8))
+            colors = ['lightgreen', 'lightblue', 'lightcoral', 'lightyellow', 'lightgray']
+            _, _, autotexts = plt.pie(status_counts.values, 
+                                              labels=status_counts.index, 
+                                              autopct='%1.1f%%',
+                                              colors=colors[:len(status_counts)],
+                                              startangle=90)
+
+            # Mejorar la apariencia del texto
+            for autotext in autotexts:
+                autotext.set_color('black')
+                autotext.set_fontweight('bold')
+
+            plt.title("Distribución de Estados de Citas", fontweight='bold', fontsize=14)
+            plt.axis('equal')
+            plt.tight_layout()
+            plt.show()
+
+        # 3. TASA DE ASISTENCIA POR DÍA DE LA SEMANA
         if 'fecha_cita' in data.columns:
+            print("📅 Generando tasa de asistencia por día...")
             data_copy = data.copy()
             data_copy['day_of_week'] = data_copy['fecha_cita'].dt.dayofweek
             attendance_by_day = data_copy.groupby('day_of_week')['estado_cita'].apply(
                 lambda x: (x == 'completada').mean() * 100
             )
-            day_names = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-            axes[1, 0].bar(range(len(attendance_by_day)), attendance_by_day.values, color='lightgreen')
-            axes[1, 0].set_title("Tasa de Asistencia por Día")
-            axes[1, 0].set_xticks(range(len(day_names)))
-            axes[1, 0].set_xticklabels(day_names)
-            axes[1, 0].set_ylabel("Tasa de Asistencia (%)")
-        
-        # Tasa de asistencia por hora
+
+            # Ordenar por días de la semana (Lunes a Domingo)
+            day_names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+            attendance_by_day = attendance_by_day.reindex(range(7))
+
+            plt.figure(figsize=(12, 6))
+            bars = plt.bar(range(len(attendance_by_day)), attendance_by_day.values, 
+                          color=['lightgreen' if x > 70 else 'orange' if x > 50 else 'red' for x in attendance_by_day.values])
+            plt.title("Tasa de Asistencia por Día de la Semana", fontweight='bold', fontsize=14)
+            plt.xlabel("Día de la Semana", fontsize=12)
+            plt.ylabel("Tasa de Asistencia (%)", fontsize=12)
+            plt.xticks(range(len(day_names)), day_names, rotation=45)
+            plt.grid(True, alpha=0.3)
+
+            # Agregar valores en las barras
+            for bar, value in zip(bars, attendance_by_day.values):
+                plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                         f'{value:.1f}%', ha='center', va='bottom', fontweight='bold')
+
+            # Agregar líneas horizontales para umbrales
+            mean_attendance = attendance_by_day.mean()
+            plt.axhline(y=mean_attendance, color='red', linestyle='--', linewidth=2, label=f'Promedio: {mean_attendance:.1f}%')
+            plt.axhline(y=70, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Alto (70%)')
+            plt.axhline(y=50, color='orange', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Medio (50%)')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        # 3. TASA DE ASISTENCIA POR HORA
         if 'fecha_cita' in data.columns:
+            print("⏰ Generando tasa de asistencia por hora...")
             data_copy['hour'] = data_copy['fecha_cita'].dt.hour
             attendance_by_hour = data_copy.groupby('hour')['estado_cita'].apply(
                 lambda x: (x == 'completada').mean() * 100
             )
-            axes[1, 1].bar(attendance_by_hour.index, attendance_by_hour.values, color='lightcoral')
-            axes[1, 1].set_title("Tasa de Asistencia por Hora")
-            axes[1, 1].set_xlabel("Hora")
-            axes[1, 1].set_ylabel("Tasa de Asistencia (%)")
+
+            plt.figure(figsize=(12, 6))
+            bars = plt.bar(attendance_by_hour.index, attendance_by_hour.values, 
+                          color=['lightgreen' if x > 70 else 'orange' if x > 50 else 'red' for x in attendance_by_hour.values])
+            plt.title("Tasa de Asistencia por Hora del Día", fontweight='bold', fontsize=14)
+            plt.xlabel("Hora del Día", fontsize=12)
+            plt.ylabel("Tasa de Asistencia (%)", fontsize=12)
+            plt.xticks(range(0, 24, 2))
+            plt.grid(True, alpha=0.3)
+
+            # Agregar valores en las barras
+            for bar, value in zip(bars, attendance_by_hour.values):
+                plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                         f'{value:.1f}%', ha='center', va='bottom', fontweight='bold')
+
+            # Agregar líneas horizontales para umbrales
+            mean_attendance = attendance_by_hour.mean()
+            plt.axhline(y=mean_attendance, color='red', linestyle='--', linewidth=2, label=f'Promedio: {mean_attendance:.1f}%')
+            plt.axhline(y=70, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Alto (70%)')
+            plt.axhline(y=50, color='orange', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Medio (50%)')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        # RESUMEN ESTADÍSTICO
+        print("\n📋 RESUMEN DE ANÁLISIS DE CITAS:")
+        print("=" * 50)
+
+        if 'estado_cita' in data.columns:
+            print(f"\n📊 ESTADOS DE CITAS:")
+            for status, count in status_counts.items():
+                percentage = (count / len(data)) * 100
+                print(f"   {status}: {count} citas ({percentage:.1f}%)")
+
+
+        if 'fecha_cita' in data.columns:
+            print(f"\n📅 DÍA CON MAYOR ASISTENCIA: {day_names[attendance_by_day.idxmax()]} ({attendance_by_day.max():.1f}%)")
+            print(f"⏰ HORA CON MAYOR ASISTENCIA: {attendance_by_hour.idxmax()}:00 hrs ({attendance_by_hour.max():.1f}%)")
         
-        plt.tight_layout()
-        plt.show()
-    
     def plot_task_completion_analysis(self, data: pd.DataFrame) -> None:
-        """Grafica análisis de completado de tareas"""
+        """Grafica análisis de completado de tareas con visualizaciones individuales"""
         if data.empty:
             print("No hay datos de tareas para visualizar")
             return
-        
-        _, axes = plt.subplots(2, 2, figsize=self.figsize)
-        
-        # Tasa de completado
+
+        # Configurar estilo
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+
+        # 1. TASA DE COMPLETADO DE TAREAS
         if 'task_completed' in data.columns:
+            print("📊 Generando tasa de completado de tareas...")
             completion_rate = data['task_completed'].mean() * 100
-            axes[0, 0].pie([completion_rate, 100-completion_rate], 
-                          labels=['Completadas', 'Pendientes'], 
-                          autopct='%1.1f%%', colors=['lightgreen', 'lightcoral'])
-            axes[0, 0].set_title("Tasa de Completado de Tareas")
-        
-        # Tiempo de completado
+
+            plt.figure(figsize=(10, 8))
+            wedges, texts, autotexts = plt.pie([completion_rate, 100-completion_rate], 
+                                              labels=['Completadas', 'Pendientes'], 
+                                              autopct='%1.1f%%', 
+                                              colors=['lightgreen', 'lightcoral'],
+                                              startangle=90)
+
+            # Mejorar la apariencia del texto
+            for autotext in autotexts:
+                autotext.set_color('black')
+                autotext.set_fontweight('bold')
+
+            plt.title("Tasa de Completado de Tareas", fontweight='bold', fontsize=14)
+            plt.axis('equal')
+            plt.tight_layout()
+            plt.show()
+
+        # 2. ANÁLISIS DE TIEMPO DE COMPLETADO (REFACTORIZADO)
         if 'time_to_complete_hours' in data.columns:
+            print("⏰ Generando análisis de tiempo de completado...")
             completed_tasks = data[data['task_completed'] == True]
+
             if not completed_tasks.empty:
-                axes[0, 1].hist(completed_tasks['time_to_complete_hours'], bins=20, alpha=0.7, color='skyblue')
-                axes[0, 1].set_title("Distribución de Tiempo de Completado")
-                axes[0, 1].set_xlabel("Horas")
-                axes[0, 1].set_ylabel("Frecuencia")
-        
-        # Completado por día de la semana
+                valid_times = completed_tasks['time_to_complete_hours'].dropna()
+
+                if len(valid_times) > 0:
+                    # Análisis de la distribución del tiempo
+                    unique_times = valid_times.nunique()
+                    time_range = valid_times.max() - valid_times.min()
+
+                    print(f"   - Tareas completadas: {len(valid_times)}")
+                    print(f"   - Tiempo promedio: {valid_times.mean():.1f} horas")
+                    print(f"   - Tiempo mediano: {valid_times.median():.1f} horas")
+                    print(f"   - Rango: {valid_times.min():.1f} - {valid_times.max():.1f} horas")
+
+                    # Si hay suficiente variación, usar histograma
+                    if unique_times > 5 and time_range > 1:
+                        plt.figure(figsize=(12, 6))
+                        plt.hist(valid_times, bins=min(20, unique_times), alpha=0.7, color='skyblue', edgecolor='black')
+                        plt.title("Distribución de Tiempo de Completado de Tareas", fontweight='bold', fontsize=14)
+                        plt.xlabel("Tiempo de Completado (horas)", fontsize=12)
+                        plt.ylabel("Frecuencia", fontsize=12)
+                        plt.grid(True, alpha=0.3)
+
+                        # Agregar líneas horizontales para umbrales
+                        mean_time = valid_times.mean()
+                        median_time = valid_times.median()
+                        plt.axhline(y=plt.gca().get_ylim()[1] * 0.8, color='red', linestyle='--', linewidth=2, label=f'Media: {mean_time:.1f} horas')
+                        plt.axhline(y=plt.gca().get_ylim()[1] * 0.6, color='green', linestyle='--', linewidth=2, label=f'Mediana: {median_time:.1f} horas')
+                        plt.legend()
+                        plt.tight_layout()
+                        plt.show()
+                    else:
+                        # Usar boxplot para distribuciones estrechas
+                        plt.figure(figsize=(10, 6))
+                        plt.boxplot(valid_times, vert=False, patch_artist=True, 
+                                   boxprops=dict(facecolor='skyblue', alpha=0.7))
+                        plt.title("Distribución de Tiempo de Completado (Boxplot)", fontweight='bold', fontsize=14)
+                        plt.xlabel("Tiempo de Completado (horas)", fontsize=12)
+                        plt.grid(True, alpha=0.3)
+
+                        # Agregar estadísticas
+                        stats_text = f"Media: {valid_times.mean():.1f} horas\nMediana: {valid_times.median():.1f} horas\nQ1: {valid_times.quantile(0.25):.1f} horas\nQ3: {valid_times.quantile(0.75):.1f} horas"
+                        plt.text(0.02, 0.98, stats_text, transform=plt.gca().transAxes, 
+                                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                        plt.tight_layout()
+                        plt.show()
+
+                    # Análisis adicional: Tiempo por estado de cita
+                    if 'estado_cita' in data.columns:
+                        print("   - Generando análisis por estado de cita...")
+
+                        time_by_status = completed_tasks.groupby('estado_cita')['time_to_complete_hours'].agg(['mean', 'count']).round(2)
+
+                        plt.figure(figsize=(10, 6))
+                        bars = plt.bar(range(len(time_by_status)), time_by_status['mean'].values,
+                                      color=['lightgreen', 'lightblue', 'lightcoral', 'lightyellow'][:len(time_by_status)])
+                        plt.title("Tiempo Promedio de Completado por Estado de Cita", fontweight='bold', fontsize=14)
+                        plt.xlabel("Estado de la Cita", fontsize=12)
+                        plt.ylabel("Tiempo Promedio (horas)", fontsize=12)
+                        plt.xticks(range(len(time_by_status)), time_by_status.index, rotation=45)
+                        plt.grid(True, alpha=0.3)
+
+                        # Agregar valores en las barras
+                        for bar, value, count in zip(bars, time_by_status['mean'].values, time_by_status['count'].values):
+                            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
+                                     f'{value:.1f}\n({count})', ha='center', va='bottom', fontweight='bold')
+
+                        plt.tight_layout()
+                        plt.show()
+                else:
+                    print("⚠️  No hay datos válidos de tiempo de completado")
+            else:
+                print("⚠️  No hay tareas completadas para analizar")
+
+        # 3. COMPLETADO POR DÍA DE LA SEMANA
         if 'fecha_cita' in data.columns:
+            print(" Generando tasa de completado por día...")
             data_copy = data.copy()
             data_copy['day_of_week'] = data_copy['fecha_cita'].dt.dayofweek
             completion_by_day = data_copy.groupby('day_of_week')['task_completed'].mean() * 100
-            day_names = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-            axes[1, 0].bar(range(len(completion_by_day)), completion_by_day.values, color='lightblue')
-            axes[1, 0].set_title("Tasa de Completado por Día")
-            axes[1, 0].set_xticks(range(len(day_names)))
-            axes[1, 0].set_xticklabels(day_names)
-            axes[1, 0].set_ylabel("Tasa de Completado (%)")
-        
-        # Longitud de tareas vs completado
-        if 'task_description' in data.columns and 'task_completed' in data.columns:
-            task_lengths = data['task_description'].str.len()
-            axes[1, 1].scatter(task_lengths, data['task_completed'], alpha=0.6, color='purple')
-            axes[1, 1].set_title("Longitud de Tarea vs Completado")
-            axes[1, 1].set_xlabel("Longitud de Tarea")
-            axes[1, 1].set_ylabel("Completado (True/False)")
-        
-        plt.tight_layout()
-        plt.show()
+
+            # Ordenar por días de la semana (Lunes a Domingo)
+            day_names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+            completion_by_day = completion_by_day.reindex(range(7))
+
+            plt.figure(figsize=(12, 6))
+            bars = plt.bar(range(len(completion_by_day)), completion_by_day.values, 
+                          color=['lightgreen' if x > 70 else 'orange' if x > 50 else 'red' for x in completion_by_day.values])
+            plt.title("Tasa de Completado de Tareas por Día de la Semana", fontweight='bold', fontsize=14)
+            plt.xlabel("Día de la Semana", fontsize=12)
+            plt.ylabel("Tasa de Completado (%)", fontsize=12)
+            plt.xticks(range(len(day_names)), day_names, rotation=45)
+            plt.grid(True, alpha=0.3)
+
+            # Agregar valores en las barras
+            for bar, value in zip(bars, completion_by_day.values):
+                plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                         f'{value:.1f}%', ha='center', va='bottom', fontweight='bold')
+
+            # Agregar líneas horizontales para umbrales
+            mean_completion = completion_by_day.mean()
+            plt.axhline(y=mean_completion, color='red', linestyle='--', linewidth=2, label=f'Promedio: {mean_completion:.1f}%')
+            plt.axhline(y=70, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Alto (70%)')
+            plt.axhline(y=50, color='orange', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Medio (50%)')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        # 3. ANÁLISIS DE PRODUCTIVIDAD POR TUTOR
+        if 'id_tutor' in data.columns and 'task_completed' in data.columns:
+            print("👨‍�� Generando análisis de productividad por tutor...")
+
+            tutor_productivity = data.groupby('id_tutor').agg({
+                'task_completed': ['mean', 'count'],
+                'task_description': 'count'
+            }).round(3)
+
+            tutor_productivity.columns = ['completion_rate', 'total_tasks', 'total_assignments']
+            tutor_productivity = tutor_productivity.sort_values('completion_rate', ascending=False)
+
+            plt.figure(figsize=(12, 6))
+            bars = plt.bar(range(len(tutor_productivity)), tutor_productivity['completion_rate'].values * 100,
+                          color=['lightgreen' if x > 0.7 else 'orange' if x > 0.5 else 'red' for x in tutor_productivity['completion_rate'].values])
+            plt.title("Tasa de Completado de Tareas por Tutor", fontweight='bold', fontsize=14)
+            plt.xlabel("Tutor", fontsize=12)
+            plt.ylabel("Tasa de Completado (%)", fontsize=12)
+            plt.xticks(range(len(tutor_productivity)), tutor_productivity.index, rotation=45)
+            plt.grid(True, alpha=0.3)
+
+            # Agregar valores en las barras
+            for bar, value, count in zip(bars, tutor_productivity['completion_rate'].values, tutor_productivity['total_tasks'].values):
+                plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                         f'{value*100:.1f}%\n({count})', ha='center', va='bottom', fontweight='bold')
+
+            # Agregar líneas horizontales para umbrales
+            mean_productivity = tutor_productivity['completion_rate'].mean() * 100
+            plt.axhline(y=mean_productivity, color='red', linestyle='--', linewidth=2, label=f'Promedio: {mean_productivity:.1f}%')
+            plt.axhline(y=70, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Alto (70%)')
+            plt.axhline(y=50, color='orange', linestyle='--', linewidth=2, alpha=0.7, label='Umbral Medio (50%)')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        # RESUMEN ESTADÍSTICO
+        print("\n📋 RESUMEN DE ANÁLISIS DE TAREAS:")
+        print("=" * 50)
+
+        if 'task_completed' in data.columns:
+            total_tasks = len(data)
+            completed_tasks = data['task_completed'].sum()
+            print(f"\n📊 ESTADO GENERAL DE TAREAS:")
+            print(f"   Total de tareas: {total_tasks}")
+            print(f"   Tareas completadas: {completed_tasks}")
+            print(f"   Tasa de completado: {completion_rate:.1f}%")
+
+        if 'time_to_complete_hours' in data.columns and len(valid_times) > 0:
+            print(f"\n⏰ ANÁLISIS DE TIEMPO:")
+            print(f"   Tiempo promedio: {valid_times.mean():.1f} horas")
+            print(f"   Tiempo mediano: {valid_times.median():.1f} horas")
+            print(f"   Rango: {valid_times.min():.1f} - {valid_times.max():.1f} horas")
+
+        if 'fecha_cita' in data.columns:
+            print(f"\n DÍA CON MAYOR COMPLETADO: {day_names[completion_by_day.idxmax()]} ({completion_by_day.max():.1f}%)")
     
     def plot_student_risk_dashboard(self, risk_scores: pd.Series) -> None:
         """Grafica dashboard de riesgo estudiantil"""

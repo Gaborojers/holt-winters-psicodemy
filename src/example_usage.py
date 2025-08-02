@@ -13,6 +13,9 @@ from src.core.base_model import HoltWintersModel, ARIMAModel, EnsembleModel
 from src.core.metrics import TimeSeriesMetrics, EducationalMetrics, ModelComparison
 from src.utils.visualization import TimeSeriesVisualizer, EducationalVisualizer
 from datetime import datetime, timedelta
+import pandas as pd
+import numpy as np
+from src.utils.anomaly_detector import AnomalyDetector
 
 def main():
     """Ejemplo principal de uso"""
@@ -264,6 +267,178 @@ def example_with_tasks():
     finally:
         db_config.close()
 
+def validate_data_quality():
+    """
+    Primer paso del pipeline: Validación de calidad de datos
+    Detecta anomalías ANTES del preprocesamiento en cada dataset
+    """
+    
+    # Inicializar detector de anomalías
+    anomaly_detector = AnomalyDetector()
+    
+    print("🔍 DETECCIÓN DE ANOMALÍAS - VALIDACIÓN INICIAL")
+    print("=" * 60)
+    
+    # 1. ANÁLISIS DE DATOS DE IA
+    print("\n🤖 ANÁLISIS DE DATOS DE IA:")
+    print("-" * 40)
+    
+    # Usar procesamiento por chunks para datasets grandes
+    if len(ai_data) > 1000:
+        ai_anomalies = anomaly_detector.detect_preprocessing_anomalies_chunked(ai_data, 'ai_data', chunk_size=1000)
+    else:
+        ai_anomalies = anomaly_detector.detect_preprocessing_anomalies(ai_data, 'ai_data')
+    
+    print(f"📊 Score de calidad: {ai_anomalies['summary']['data_quality_score']:.1f}/100")
+    print(f"📈 Registros totales: {ai_anomalies['summary']['total_records']}")
+    
+    # Mostrar anomalías específicas de IA
+    if 'domain_specific' in ai_anomalies:
+        domain = ai_anomalies['domain_specific']
+        
+        if 'invalid_scores' in domain:
+            invalid = domain['invalid_scores']
+            print(f"⚠️  Scores fuera de rango:")
+            print(f"   - Bullying: {invalid['bullying_out_of_range']}")
+            print(f"   - Concern: {invalid['concern_out_of_range']}")
+            print(f"   - Academic: {invalid['academic_out_of_range']}")
+        
+        if 'suspicious_patterns' in domain:
+            print(f"🚨 Patrones sospechosos: {domain['suspicious_patterns']['identical_scores']} scores idénticos")
+        
+        if 'constant_scores' in domain:
+            constant = domain['constant_scores']
+            if any(constant.values()):
+                print("⚠️  Scores constantes detectados (posible error en modelo de IA)")
+    
+    # Mostrar anomalías avanzadas
+    if 'advanced_anomalies' in ai_anomalies:
+        advanced = ai_anomalies['advanced_anomalies']
+        if 'isolation_forest' in advanced and 'anomaly_percentage' in advanced['isolation_forest']:
+            print(f"🔍 Anomalías (Isolation Forest): {advanced['isolation_forest']['anomaly_percentage']:.1f}%")
+        if 'local_outlier_factor' in advanced and 'anomaly_percentage' in advanced['local_outlier_factor']:
+            print(f"🔍 Anomalías (LOF): {advanced['local_outlier_factor']['anomaly_percentage']:.1f}%")
+    
+    # 2. ANÁLISIS DE DATOS DE CITAS
+    print("\n📅 ANÁLISIS DE DATOS DE CITAS:")
+    print("-" * 40)
+    
+    # Usar procesamiento por chunks para datasets grandes
+    if len(appointments_data) > 1000:
+        appointments_anomalies = anomaly_detector.detect_preprocessing_anomalies_chunked(appointments_data, 'appointments_data', chunk_size=1000)
+    else:
+        appointments_anomalies = anomaly_detector.detect_preprocessing_anomalies(appointments_data, 'appointments_data')
+    
+    print(f"📊 Score de calidad: {appointments_anomalies['summary']['data_quality_score']:.1f}/100")
+    print(f"📈 Registros totales: {appointments_anomalies['summary']['total_records']}")
+    
+    # Mostrar anomalías específicas de citas
+    if 'domain_specific' in appointments_anomalies:
+        domain = appointments_anomalies['domain_specific']
+        
+        if 'invalid_appointment_states' in domain:
+            invalid_states = domain['invalid_appointment_states']
+            if invalid_states['count'] > 0:
+                print(f"⚠️  Estados de cita inválidos: {invalid_states['count']}")
+                print(f"   - Valores: {invalid_states['invalid_values']}")
+        
+        if 'date_anomalies' in domain:
+            dates = domain['date_anomalies']
+            print(f"📅 Anomalías de fechas:")
+            print(f"   - Futuro lejano: {dates['far_future_appointments']}")
+            print(f"   - Pasado lejano: {dates['far_past_appointments']}")
+        
+        if 'checklist_structure' in domain:
+            checklist = domain['checklist_structure']
+            print(f"📋 Problemas en checklists:")
+            print(f"   - Malformados: {checklist['malformed_checklists']}")
+            print(f"   - Vacíos: {checklist['empty_checklists']}")
+    
+    # 3. ANÁLISIS DE DATOS DE TAREAS
+    print("\n✅ ANÁLISIS DE DATOS DE TAREAS:")
+    print("-" * 40)
+    
+    # Usar procesamiento por chunks para datasets grandes
+    if len(tasks_data) > 1000:
+        tasks_anomalies = anomaly_detector.detect_preprocessing_anomalies_chunked(tasks_data, 'tasks_data', chunk_size=1000)
+    else:
+        tasks_anomalies = anomaly_detector.detect_preprocessing_anomalies(tasks_data, 'tasks_data')
+    
+    print(f"📊 Score de calidad: {tasks_anomalies['summary']['data_quality_score']:.1f}/100")
+    print(f"📈 Registros totales: {tasks_anomalies['summary']['total_records']}")
+    
+    # Mostrar anomalías específicas de tareas
+    if 'domain_specific' in tasks_anomalies:
+        domain = tasks_anomalies['domain_specific']
+        
+        if 'empty_task_descriptions' in domain:
+            empty = domain['empty_task_descriptions']
+            print(f"⚠️  Tareas sin descripción: {empty['count']} ({empty['percentage']:.1f}%)")
+        
+        if 'completed_tasks_cancelled_appointments' in domain:
+            cancelled = domain['completed_tasks_cancelled_appointments']
+            print(f"🚨 Tareas completadas en citas canceladas: {cancelled['count']}")
+    
+    # RESUMEN GENERAL
+    print("\n📋 RESUMEN DE CALIDAD DE DATOS:")
+    print("=" * 60)
+    
+    datasets = {
+        'IA': ai_anomalies,
+        'Citas': appointments_anomalies,
+        'Tareas': tasks_anomalies
+    }
+    
+    for name, anomalies in datasets.items():
+        score = anomalies['summary']['data_quality_score']
+        missing = anomalies['missing_values']['total_percentage']
+        duplicates = anomalies['duplicates']['percentage']
+        
+        print(f"\n{name}:")
+        print(f"   - Score: {score:.1f}/100")
+        print(f"   - Valores faltantes: {missing:.1f}%")
+        print(f"   - Duplicados: {duplicates:.1f}%")
+        
+        # Clasificar calidad
+        if score >= 90:
+            status = "🟢 Excelente"
+        elif score >= 75:
+            status = "🟡 Buena"
+        elif score >= 60:
+            status = "🟠 Aceptable"
+        else:
+            status = "🔴 Requiere atención"
+        
+        print(f"   - Estado: {status}")
+    
+    # RECOMENDACIONES
+    print("\n💡 RECOMENDACIONES:")
+    print("-" * 40)
+    
+    # Identificar datasets con problemas
+    problematic_datasets = []
+    for name, anomalies in datasets.items():
+        score = anomalies['summary']['data_quality_score']
+        if score < 75:
+            problematic_datasets.append(name)
+    
+    if problematic_datasets:
+        print(f"⚠️  Datasets que requieren atención: {', '.join(problematic_datasets)}")
+        print("   - Revisar valores faltantes")
+        print("   - Validar duplicados")
+        print("   - Verificar anomalías específicas del dominio")
+    else:
+        print("✅ Todos los datasets tienen buena calidad de datos")
+        print("   - Se puede proceder con el preprocesamiento")
+    
+    return {
+        'ai_anomalies': ai_anomalies,
+        'appointments_anomalies': appointments_anomalies,
+        'tasks_anomalies': tasks_anomalies,
+        'overall_quality': {name: anomalies['summary']['data_quality_score'] 
+                           for name, anomalies in datasets.items()}
+    }
+
 if __name__ == "__main__":
     # Ejecutar análisis principal
     main()
@@ -271,3 +446,5 @@ if __name__ == "__main__":
     # Ejemplos adicionales
     example_with_appointments()
     example_with_tasks() 
+    # Ejecutar validación
+    validation_results = validate_data_quality() 
